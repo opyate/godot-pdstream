@@ -20,8 +20,8 @@ int create(instance_t *inst, size_t blocksize, size_t samplerate, float *inputs,
     inst->inputs      = inputs;
     inst->outputs     = outputs;
 
-    inst->instance = libpd_new_instance();
-    libpd_set_instance(inst->instance);
+    inst->instance = libpd_new_instance();  // already sets new instance as current
+    // libpd_set_instance(inst->instance);
     
     if (!inst->instance)
         return PDS_ERR_INIT_INST;
@@ -34,18 +34,18 @@ int create(instance_t *inst, size_t blocksize, size_t samplerate, float *inputs,
 
 void destroy(instance_t *inst)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if(inst->instance) {
         libpd_free_instance(inst->instance);
     }
 }
 
-int open(instance_t *inst, char *file, char *dir)
+int pdstream_instance_open(instance_t *inst, char *file, char *dir)
 {
     if(inst->patch)
         close(inst);
 
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     inst->patch = libpd_openfile(file, dir);
 
     if (!inst->patch)
@@ -56,14 +56,14 @@ int open(instance_t *inst, char *file, char *dir)
 
 void close(instance_t *inst)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     libpd_closefile(inst->patch);
     inst->patch = NULL;
 }
 
 int start_dsp(instance_t *inst)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_start_message(1))
         return PDS_ERR_MSG_LEN;
     libpd_add_float(1.f);
@@ -75,7 +75,7 @@ int start_dsp(instance_t *inst)
 
 int stop_dsp(instance_t *inst)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_start_message(1))
         return PDS_ERR_MSG_LEN;
     libpd_add_float(0.f);
@@ -87,19 +87,19 @@ int stop_dsp(instance_t *inst)
 
 void add_float(instance_t *inst, float x)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     libpd_add_float(x);
 }
 
 void add_symbol(instance_t *inst, char *s)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     libpd_add_symbol(s);
 }
 
 int finish_list(instance_t *inst, char *s)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_finish_list(s))
         return PDS_ERR_NO_RECV;
 
@@ -108,7 +108,7 @@ int finish_list(instance_t *inst, char *s)
 
 int start_message(instance_t *inst, int length)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_start_message(length))
         return PDS_ERR_MSG_LEN;
 
@@ -117,7 +117,7 @@ int start_message(instance_t *inst, int length)
 
 int finish_message(instance_t *inst, char *recv, char *msg)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_finish_message(recv, msg))
         return PDS_ERR_NO_RECV;
 
@@ -126,7 +126,7 @@ int finish_message(instance_t *inst, char *recv, char *msg)
 
 int bang(instance_t *inst, char *recv)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_bang(recv))
         return PDS_ERR_NO_RECV;
 
@@ -135,16 +135,19 @@ int bang(instance_t *inst, char *recv)
 
 int flot(instance_t *inst, char *recv, float x)
 {
-    libpd_set_instance(inst->instance);
-    if (libpd_float(recv, x))
+    // libpd_set_instance(inst->instance);
+    int ret_val;
+    ret_val = libpd_float(recv, x);
+    if (ret_val == 0) {
+        return PDS_ERR_SUCCESS;
+    } else {
         return PDS_ERR_NO_RECV;
-
-    return PDS_ERR_SUCCESS;
+    }
 }
 
 int symbol(instance_t *inst, char *recv, char *symbol)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_symbol(recv, symbol))
         return PDS_ERR_NO_RECV;
 
@@ -153,7 +156,7 @@ int symbol(instance_t *inst, char *recv, char *symbol)
 
 int perform(instance_t *inst)
 {
-    libpd_set_instance(inst->instance);
+    // libpd_set_instance(inst->instance);
     if (libpd_process_float((int)(inst->blocksize / (size_t)64), inst->inputs, inst->outputs))
         return PDS_ERR_PROCESS;
     return PDS_ERR_SUCCESS;

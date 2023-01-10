@@ -6,7 +6,6 @@
 
 const godot_gdnative_core_api_struct *core_api = NULL;
 const godot_gdnative_ext_nativescript_api_struct *nativescript_api = NULL;
-const godot_gdnative_ext_nativescript_1_1_api_struct *nativescript_ext_api = NULL;
 godot_string res_prefix;
 godot_string dir_prefix;
 
@@ -34,7 +33,7 @@ void error_reporter(int code, const char *function, int line)
             core_api->godot_print_warning("Couldn't open patch file", function, "pdstream.c", line);
             break;
         case PDS_ERR_INIT_INST :
-            core_api->godot_print_error("Couldn't initialise libpd instance!", function, "pdstream.c", line);
+            core_api->godot_print_error("Couldn't initialise libpd instance! Was libpd compiled with MULTI=true?", function, "pdstream.c", line);
             break;
     }
 }
@@ -150,7 +149,7 @@ godot_variant pdstream_open(godot_object *p_instance,
     replaced = core_api->godot_string_replace_first(&dir_str, res_prefix, dir_prefix);
     dir = string_to_chars(replaced);
 
-    error_reporter(open(inst, file, dir), __func__, __LINE__);
+    error_reporter(pdstream_instance_open(inst, file, dir), __func__, __LINE__);
 
     core_api->godot_string_destroy(&full_path);
     core_api->godot_string_destroy(&file_str);
@@ -158,29 +157,6 @@ godot_variant pdstream_open(godot_object *p_instance,
     core_api->godot_string_destroy(&dir_str);
     core_api->godot_free(file);
     core_api->godot_free(dir);
-}
-
-godot_method_arg pdstream_open_args()
-{
-    godot_method_arg arg;
-
-    godot_string arg_path_name;
-    godot_variant_type arg_path_type = GODOT_VARIANT_TYPE_STRING;
-    godot_property_hint arg_path_hint = GODOT_PROPERTY_HINT_FILE;
-    godot_string arg_path_hint_string;
-
-    core_api->godot_string_new(&arg_path_name);
-    core_api->godot_string_parse_utf8(&arg_path_name, "patch_path");
-
-    core_api->godot_string_new(&arg_path_hint_string);
-    core_api->godot_string_parse_utf8(&arg_path_hint_string, "Path to Pd patch");
-
-    arg.name = arg_path_name;
-    arg.type = arg_path_type;
-    arg.hint = arg_path_hint;
-    arg.hint_string = arg_path_hint_string;
-
-    return arg;
 }
 
 godot_variant pdstream_perform(godot_object *p_instance,
@@ -322,9 +298,8 @@ void GDN_EXPORT godot_nativescript_init(void *p_handle)
     godot_instance_method create = { &pdstream_create, NULL, NULL};
     godot_method_attributes create_attributes = { GODOT_METHOD_RPC_MODE_DISABLED };
 
-    godot_instance_method open = { &pdstream_open, NULL, NULL };
-    godot_method_attributes open_attributes = { GODOT_METHOD_RPC_MODE_DISABLED };
-    godot_method_arg open_args = pdstream_open_args();
+    godot_instance_method gd_open = { &pdstream_open, NULL, NULL };
+    godot_method_attributes gd_open_attributes = { GODOT_METHOD_RPC_MODE_DISABLED };
 
     godot_instance_method perform = { &pdstream_perform, NULL, NULL };
     godot_method_attributes perform_attributes = { GODOT_METHOD_RPC_MODE_DISABLED };
@@ -352,8 +327,7 @@ void GDN_EXPORT godot_nativescript_init(void *p_handle)
             create_attributes, create);
 
     nativescript_api->godot_nativescript_register_method(p_handle, "PdStream", "open",
-            open_attributes, open);
-    nativescript_ext_api->godot_nativescript_set_method_argument_information(p_handle, "PdStream", "open", 1, &open_args);
+            gd_open_attributes, gd_open);
 
     nativescript_api->godot_nativescript_register_method(p_handle, "PdStream", "perform",
         perform_attributes, perform);
@@ -374,22 +348,28 @@ void GDN_EXPORT godot_nativescript_init(void *p_handle)
     nativescript_api->godot_nativescript_register_method(p_handle, "PdStream", "add_symbol",
         add_symbol_attributes, add_symbol);
     
-    error_reporter(pd_init(), __func__, __LINE__);
+    
 }
 
+// called before godot_nativescript_init
 void GDN_EXPORT godot_gdnative_init(godot_gdnative_init_options *p_options)
 {
+
+    error_reporter(pd_init(), __func__, __LINE__);
+
     core_api = p_options->api_struct;
     core_api->godot_string_parse_utf8(&res_prefix, "res://");
     core_api->godot_string_parse_utf8(&dir_prefix, "./");
+
+    godot_string msg = core_api->godot_string_chars_to_utf8("godot-pdstream init");
+    core_api->godot_print(&msg);
+    core_api->godot_string_destroy(&msg);
 
     // Now find our extensions.
     for (int i = 0; i < core_api->num_extensions; i++) {
         switch (core_api->extensions[i]->type) {
             case GDNATIVE_EXT_NATIVESCRIPT: {
                 nativescript_api = (godot_gdnative_ext_nativescript_api_struct *)core_api->extensions[i];
-                if (nativescript_api->next)
-                    nativescript_ext_api = (godot_gdnative_ext_nativescript_1_1_api_struct *)nativescript_api->next;
             }; break;
             default: break;
         }
@@ -410,5 +390,4 @@ void GDN_EXPORT godot_gdnative_init(godot_gdnative_init_options *p_options)
 void GDN_EXPORT godot_gdnative_terminate(godot_gdnative_terminate_options *p_options) {
     core_api = NULL;
     nativescript_api = NULL;
-    nativescript_ext_api = NULL;
 }

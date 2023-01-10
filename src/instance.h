@@ -32,7 +32,7 @@ int pd_init();
 int create(instance_t *inst, size_t blocksize, size_t samplerate, float *inputs, float *outputs);
 void destroy(instance_t *inst);
 
-int open(instance_t *inst, char *file, char *dir);
+int pdstream_instance_open(instance_t *inst, char *file, char *dir);
 void close(instance_t *inst);
 
 int start_dsp(instance_t *inst);
